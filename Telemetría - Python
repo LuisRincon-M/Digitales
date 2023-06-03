@@ -1,75 +1,156 @@
-import csv
-import serial
-import time
-import numpy as np
-import matplotlib.pyplot as plt
+import sys 
+import csv  
+import serial 
+from datetime import datetime 
+from PyQt5.QtWidgets import 
+from PyQt5.QtCore import 
+from PyQt5.QtGui import 
+import numpy as np  
+import pyqtgraph as pg  
 
-# Establecer la comunicación serial con Arduino
-arduino = serial.Serial('COM3', 9600)
 
-# Configurar la ventana de gráficos
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(12, 7)) # La figura se crea con subplots, y muestra 3 filas, 1 columna, anch0 12 pulg, altura 7 pulg
-plt.subplots_adjust(hspace=0.5)
+class SerialPlot(QWidget):  
+    def _init_(self, parent=None):
+        super(SerialPlot, self)._init_(parent)
 
-# Inicializar las variables para almacenar los datos
-Acel_X = []
-Acel_Y = []
-Acel_Z = []
-Gyro_X = []
-Gyro_Y = []
-Gyro_Z = []
-Altitud = []
-Temperatura = []
+   
+        self.setWindowTitle("Datos del cohete")
+        self.setGeometry(0, 0, 800, 600)
 
-# Función para actualizar los datos y graficarlos en tiempo real
-def update():
-    # Leer los datos desde Arduino
-    data = arduino.readline().decode('utf-8').strip().split(',')
-    # Convertir los datos a valores numéricos
-    X_Acel = float(data[0])
-    Y_Acel = float(data[1])
-    Z_Acel = float(data[2])
-    X_Gyro = float(data[3])
-    Y_Gyro = float(data[4])
-    Z_Gyro= float(data[5])
-    Altit = float(data[6])
-    Temp = float(data[7])
-    # Almacenar los datos
-    Acel_X.append(X_Acel)
-    Acel_Y.append(Y_Acel)
-    Acel_Z.append(Z_Acel)
-    Gyro_X.append(X_Gyro)
-    Gyro_Y.append(Y_Gyro)
-    Gyro_Z.append(Z_Gyro)
-    Altitud.append(Altit)
-    Temperatura.append(Temp)
-    # Actualizar las gráficas
-    ax1.clear()
-    ax1.plot(Acel_X, label='X')
-    ax1.plot(Acel_Y, label='Y')
-    ax1.plot(Acel_Z, label='Z')
-    ax1.set_title('Acelerómetro')
-    ax1.legend()
-    ax2.clear()
-    ax2.plot(Gyro_X, label='X')
-    ax2.plot(Gyro_Y, label='Y')
-    ax2.plot(Gyro_Z, label='Z')
-    ax2.set_title('Giroscopio')
-    ax3.legend()
-    ax3.clear()
-    ax3.plot(Altitud, label= 'Alti')
-    ax3.set_title('Altitud')
-    ax3.legend()
-    ax4.clear()
-    ax4.plot(Temperatura, label= 'Temp')
-    ax4.set_title('Temperatura')
-    ax4.legend()
-    with open('datos.csv', mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Accel X', 'Accel Y', 'Accel Z', 'Gyro X', 'Gyro Y', 'Gyro Z', 'Altitud', 'Temperatura'])
-            for i in range(len(Gyro_X)):
-                writer.writerow([Acel_X[i], Acel_Y[i], Acel_Z[i], Gyro_X[i], Gyro_Y[i], Gyro_Z[i], Altitud[i], Temperatura[i]])
-# Bucle principal
-while True:
-    update()
-    plt.pause(0.001)
+     
+        self.graphWidget = pg.PlotWidget(self) 
+        self.graphWidget.setGeometry(50, 550, 600, 200) 
+        self.graphWidget.setBackground('w') 
+        self.graphWidget.showGrid(x=True, y=True) 
+        self.graphWidget.setLabel('left', 'Altitud') 
+        self.graphWidget.setLabel('bottom', 'Tiempo (s)')
+        self.graphWidget.setTitle('<b><font size=6 color="black">Altitud</font></b>') 
+
+        
+        self.graphWidget1 = pg.PlotWidget(self)
+        self.graphWidget1.setGeometry(50, 50, 600, 200)
+        self.graphWidget1.setBackground('w')
+        self.graphWidget1.showGrid(x=True, y=True)
+        self.graphWidget1.setLabel('left', 'Aceleración')
+        self.graphWidget1.setLabel('bottom', 'Tiempo (s)')
+        self.graphWidget1.setTitle('<b><font size=6 color="black">Acelerómetro</font></b>')
+
+        
+        self.graphWidget2 = pg.PlotWidget(self)
+        self.graphWidget2.setGeometry(50, 300, 600, 200)
+        self.graphWidget2.setBackground('w')
+        self.graphWidget2.showGrid(x=True, y=True)
+        self.graphWidget2.setLabel('left', 'Giroscopio')
+        self.graphWidget2.setLabel('bottom', 'Tiempo (s)')
+        self.graphWidget2.setTitle('<b><font size=6 color="black">Giroscopio</font></b>')
+
+        
+        self.ser = serial.Serial('COM3', 9600)
+        self.ser.flush()
+
+        
+        num_points = 1000  
+        self.x_data = np.zeros(num_points)  
+        self.y_data_1 = np.zeros(num_points)  
+        self.y_data_2 = np.zeros(num_points)  
+        self.y_data_3 = np.zeros(num_points)  
+        self.y_data_4 = np.zeros(num_points)  
+        self.y_data_5 = np.zeros(num_points)  
+        self.y_data_6 = np.zeros(num_points)  
+        self.y_data_7 = np.zeros(num_points)  
+
+        self.curve1 = self.graphWidget.plot(self.x_data, self.y_data_1, pen='red', name='Altura') 
+
+        self.curve2 = self.graphWidget1.plot(self.x_data, self.y_data_2, pen='g', name='AcX')
+        self.curve3 = self.graphWidget1.plot(self.x_data, self.y_data_3, pen='b', name='AcY')
+        self.curve4 = self.graphWidget1.plot(self.x_data, self.y_data_4, pen='r', name='AcZ')
+  
+        self.curve5 = self.graphWidget2.plot(self.x_data, self.y_data_5, pen='g', name='GyX')
+        self.curve6 = self.graphWidget2.plot(self.x_data, self.y_data_6, pen='b', name='GyY')
+        self.curve7 = self.graphWidget2.plot(self.x_data, self.y_data_7, pen='r', name='GyZ')
+
+        
+        self.temp_label = QLabel(self)
+        self.temp_label.setGeometry(self.width() - 150, self.height() - 50, 150, 30)
+        self.temp_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        layout = QHBoxLayout() 
+        layout.addWidget(self.graphWidget) 
+        layout.addWidget(self.graphWidget1) 
+        layout.addWidget(self.graphWidget2) 
+        self.setLayout(layout)
+        self.showFullScreen()
+
+        self.timer = QTimer() 
+        self.timer.timeout.connect(self.update_data)  
+        self.timer.start(10) 
+
+        self.start_time = datetime.now()
+
+    def update_data(self):
+ 
+        line = self.ser.readline().decode().strip()
+        values = line.split(',')
+
+
+        current_time = datetime.now()  
+        elapsed_time = (current_time - self.start_time).total_seconds()  
+        
+        temperature = float(values[7]) 
+
+        
+        self.temp_label.setText(f'Temperatura: {temperature} °C')
+
+        
+        self.y_data_1[:-1] = self.y_data_1[1:] 
+        self.y_data_1[-1] = float(values[0]) 
+       
+        self.y_data_2[:-1] = self.y_data_2[1:]
+        self.y_data_2[-1] = float(values[1]) 
+        self.y_data_3[:-1] = self.y_data_3[1:]
+        self.y_data_3[-1] = float(values[2]) 
+        self.y_data_4[:-1] = self.y_data_4[1:]
+        self.y_data_4[-1] = float(values[3]) 
+       
+        self.y_data_5[:-1] = self.y_data_5[1:]
+        self.y_data_5[-1] = float(values[4]) 
+        self.y_data_6[:-1] = self.y_data_6[1:]
+        self.y_data_6[-1] = float(values[5]) 
+        self.y_data_7[:-1] = self.y_data_7[1:]
+        self.y_data_7[-1] = float(values[6]) 
+
+        self.x_data[:-1] = self.x_data[1:]  
+        self.x_data[-1] = elapsed_time
+
+        self.curve1.setData(self.x_data, self.y_data_1) 
+        
+        self.curve2.setData(self.x_data, self.y_data_2) 
+        self.curve3.setData(self.x_data, self.y_data_3) 
+        self.curve4.setData(self.x_data, self.y_data_4) 
+
+        self.curve5.setData(self.x_data, self.y_data_5) 
+        self.curve6.setData(self.x_data, self.y_data_6) 
+        self.curve7.setData(self.x_data, self.y_data_7) 
+
+        with open('datos.csv', 'a', newline='') as archivo_csv:
+            escritor_csv = csv.writer(archivo_csv)
+            if archivo_csv.tell() == 0:  
+                escritor_csv.writerow(['Tiempo', 'Altitud', 'Acel X', 'Acel Y', 'Acel Z', 'Gyr X', 'Gyr Y', 'Gyr Z', 'Temperatura']) # Escribe una columna con las etiquetas de los datos
+            escritor_csv.writerow([elapsed_time, values[0], values[1], values[2], values[3], values[4], values[5], values[6], temperature]) # Escribe en un archivo CSV los datos obtenidos 
+
+    def resizeEvent(self, event):
+
+        self.graphWidget.setGeometry(50, 50, self.width() - 100, self.height() // 3 - 50)
+        self.graphWidget1.setGeometry(50, self.height() // 3 + 10, self.width() - 100, self.height() // 3 - 50)
+        self.graphWidget2.setGeometry(50, (self.height() // 3) * 2 + 10, self.width() - 100, self.height() // 3 - 50)
+        self.temp_label.setGeometry(self.width() - 150, self.height() - 50, 150, 30)
+
+
+if _name_ == '_main_':
+    app = QApplication(sys.argv)  
+    app.setStyle("Fusion")
+    palette = QPalette() 
+    palette.setColor(QPalette.Window, QColor(35, 35, 35)) 
+    app.setPalette(palette)
+    window = SerialPlot()  
+    sys.exit(app.exec_()) 
